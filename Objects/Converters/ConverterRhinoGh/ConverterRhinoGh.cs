@@ -65,6 +65,7 @@ namespace Objects.Converter.RhinoGh
     public Base ConvertToSpeckle(object @object)
     {
       RenderMaterial material = null;
+      Rhino.Render.TextureMapping textureMapping = null;
       DisplayStyle style = null;
       Base @base = null;
       Base schema = null;
@@ -76,8 +77,14 @@ namespace Objects.Converter.RhinoGh
         if (ro.Attributes.GetUserString(SpeckleSchemaKey) != null) // schema check - this will change in the near future
           schema = ConvertToSpeckleBE(ro);
 
-        if (!(@object is InstanceObject)) // block instance check
-          @object = ro.Geometry;
+                if (!(@object is InstanceObject)) // block instance check
+                {
+                    if(ro.HasTextureMapping())
+                    {
+                        textureMapping = ro.GetTextureMapping(ro.GetTextureChannels()[0]);
+                    }
+                    @object = ro.Geometry;
+                }
       }
 
       switch (@object)
@@ -146,13 +153,13 @@ namespace Objects.Converter.RhinoGh
           @base = HatchToSpeckle(o);
           break;
         case RH.Mesh o:
-          @base = MeshToSpeckle(o);
+          @base = MeshToSpeckle(o, textureMapping: textureMapping);
           break;
         case RH.Extrusion o:
-          @base = BrepToSpeckle(o);
+          @base = BrepToSpeckle(o, textureMapping: textureMapping);
           break;
         case RH.Brep o:
-          @base = BrepToSpeckle(o.DuplicateBrep());
+          @base = BrepToSpeckle(o.DuplicateBrep(), textureMapping: textureMapping);
           break;
         case NurbsSurface o:
           @base = SurfaceToSpeckle(o);

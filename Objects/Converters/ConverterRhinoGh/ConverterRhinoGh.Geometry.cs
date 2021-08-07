@@ -598,12 +598,34 @@ namespace Objects.Converter.RhinoGh
     }
 
     // Meshes
-    public Mesh MeshToSpeckle(RH.Mesh mesh, string units = null)
+    public Mesh MeshToSpeckle(RH.Mesh mesh, string units = null, Rhino.Render.TextureMapping textureMapping = null)
     {
       var u = units ?? ModelUnits;
-      var verts = PointsToFlatArray(mesh.Vertices.ToPoint3dArray());
 
-      var Faces = mesh.Faces.SelectMany(face =>
+      double[] uvs = null;
+      if (textureMapping != null)
+      {
+
+                //mesh.SetTextureCoordinates(textureMapping, Transform.Identity, false);
+                //List<Point3d> uvws = new List<Point3d>();
+                //foreach (var point in mesh.TextureCoordinates)
+                //{
+                //    var point3d = new Point3d(Convert.ToDouble(point.X), Convert.ToDouble(point.Y), 0);
+                //    point3d.Transform(textureMapping.UvwTransform);
+                //    uvws.Add(point3d);
+                //}
+                //uvs = PointsToFlatArray(uvws);
+
+                //var test = mesh.TextureCoordinates.ToFloatArray();
+
+                Transform transform = Transform.Identity;//new Transform(textureMapping.PrimativeTransform);
+                mesh.SetCachedTextureCoordinates(textureMapping, ref transform);
+                var uvw = mesh.GetCachedTextureCoordinates(textureMapping.Id);
+                if (uvw != null && uvw.Count > 0) uvs = PointsToFlatArray(mesh.GetCachedTextureCoordinates(textureMapping.Id));
+            }
+            var verts = PointsToFlatArray(mesh.Vertices.ToPoint3dArray());
+
+            var Faces = mesh.Faces.SelectMany(face =>
       {
         if (face.IsQuad) return new int[] { 1, face.A, face.B, face.C, face.D };
         return new int[] { 0, face.A, face.B, face.C };
@@ -611,7 +633,7 @@ namespace Objects.Converter.RhinoGh
 
       var Colors = mesh.VertexColors.Select(cl => cl.ToArgb()).ToArray();
 
-      var speckleMesh = new Mesh(verts, Faces, Colors, null, u);
+      var speckleMesh = new Mesh(verts, Faces, Colors, uvs, u);
       speckleMesh.volume = mesh.Volume();
       speckleMesh.bbox = BoxToSpeckle(new RH.Box(mesh.GetBoundingBox(true)), u);
 
@@ -724,7 +746,7 @@ namespace Objects.Converter.RhinoGh
     /// </summary>
     /// <param name="brep">BREP to be converted.</param>
     /// <returns></returns>
-    public Brep BrepToSpeckle(RH.Brep brep, string units = null)
+    public Brep BrepToSpeckle(RH.Brep brep, string units = null, Rhino.Render.TextureMapping textureMapping = null)
     {
       var tol = RhinoDoc.ActiveDoc.ModelAbsoluteTolerance;
       //tol = 0;
@@ -737,12 +759,13 @@ namespace Objects.Converter.RhinoGh
       // Create complex
       var joinedMesh = new RH.Mesh();
       var mySettings = MeshingParameters.Minimal;
+
       joinedMesh.Append(RH.Mesh.CreateFromBrep(brep, mySettings));
       joinedMesh.Weld(Math.PI);
       joinedMesh.Vertices.CombineIdentical(true, true);
       joinedMesh.Compact();
 
-      var spcklBrep = new Brep(displayValue: MeshToSpeckle(joinedMesh, u), provenance: Applications.Rhino, units: u);
+      var spcklBrep = new Brep(displayValue: MeshToSpeckle(joinedMesh, u, textureMapping), provenance: Applications.Rhino, units: u);
 
       // Vertices, uv curves, 3d curves and surfaces
       spcklBrep.Vertices = brep.Vertices
@@ -925,9 +948,9 @@ namespace Objects.Converter.RhinoGh
 
     // Extrusions
     // TODO: Research into how to properly create and recreate extrusions. Current way we compromise by transforming them into breps.
-    public Brep BrepToSpeckle(Rhino.Geometry.Extrusion extrusion, string units = null)
+    public Brep BrepToSpeckle(Rhino.Geometry.Extrusion extrusion, string units = null, Rhino.Render.TextureMapping textureMapping = null)
     {
-      return BrepToSpeckle(extrusion.ToBrep(), units ?? ModelUnits);
+     return BrepToSpeckle(extrusion.ToBrep(), units ?? ModelUnits, textureMapping);
 
       //var myExtrusion = new SpeckleExtrusion( SpeckleCore.Converter.Serialise( extrusion.Profile3d( 0, 0 ) ), extrusion.PathStart.DistanceTo( extrusion.PathEnd ), extrusion.IsCappedAtBottom );
 
